@@ -1,0 +1,179 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+1.	APPLYING THE C5.0 DECISION TREE ALGORITHM 
+
+In the example, we use the C5.0 algorithm in 5 steps to identify risky bank loans.
+
+STEP 1 Collecting Data
+We have dataset from the UCI Machine Learning Data Repository (http://archive.ics.uci.edu/ml) by Hans Hofmann of
+the University of Hamburg. The dataset contains information on loans obtained from a credit agency in Germany.
+
+STEP 2 Data Exploration
+
+First, we loaded our data into R. Str() function shows the credi data frame includes 1000 examples and 17 features, which both having factor and integer data type. The last one is credit default is the key column for our analysis.
+
+```{r}
+credit <- read.csv("credit.csv")
+str(credit)
+```
+
+```{r}
+table(credit$checking_balance)
+table(credit$savings_balance)
+```
+
+The account balance may prove to be important predictors of loan default status. Note that since the loan data was obtained from Germany, the currency is recorded in Deutsche Marks (DM).
+
+```{r}
+summary(credit$months_loan_duration)
+summary(credit$amount)
+```
+
+The last summary () function shows that the loan amounts ranged from 250 DM to 18,420 DM across terms of 4 to 72 months with a median duration of 18 months and an amount of 2,320 DM.
+The default feature (column N17) indicates whether the loan applicant was unable to meet the agreed payment terms and went into default. A total of 30% of the all loans in this dataset went into default:
+
+```{r}
+table(credit$default)
+```
+
+Data preparation - creating random training and test datasets
+
+Before creating training dataset we rearrange ou dataframe using the sample() function to select 900 values at random
+out of the sequence of integers from 1 to 1000. We use set.seed function to create pseudorandom generator fucntion. 
+
+```{r}
+set.seed(123)
+train_sample <- sample(1000, 900)
+str(train_sample)
+```
+
+The function creates random sample of 900 observations from the initial 1000 observations. Next, we create both training and test datasets with following commands:
+
+```{r}
+credit_train <- credit[train_sample, ]
+credit_test  <- credit[-train_sample, ]
+```
+
+We check our results and both datasets have about 30 percent of defaulted loans:
+
+```{r}
+prop.table(table(credit_train$default))
+prop.table(table(credit_test$default))
+```
+
+Step 3: Training a model on the data
+
+In this step we loaded library c50 and applied C5.0 algorithm to create our first decision tree.
+
+```{r}
+library(C50)
+credit_model <- C5.0(credit_train[-17], credit_train$default)
+```
+
+The credit_model object now contains a C5.0 decision tree. We can see some basic data about the tree by typing its name:
+
+```{r}
+credit_model
+```
+
+We see that our tree's size - 57, with 500 samples (examples) and 16 predictors.
+
+```{r}
+summary(credit_model)
+```
+
+The R output shows all the branches in the decision tree. After the tree, the summary(credit_model) output displays a confusion matrix, which is a cross-tabulation that indicates the model's incorrectly classifed records in the training data. The model correctly classifed 133 of the 900 training instances for an error rate of 14.8 percent. A total of 35 actual no values were incorrectly classifed as yes (false positives), while 98 yes values were misclassifed as no (false negatives).
+
+Step 4 Model Performance Evaluation
+
+To apply our decision tree to the test dataset, we use the predict() function.
+
+```{r}
+credit_pred <- predict(credit_model, credit_test)
+credit_pred
+```
+
+This output creates a vector of predicted class values. After that, we loaded library(gmodels) and produce confusion matrix.
+
+```{r}
+library(gmodels)
+CrossTable(credit_test$default, credit_pred,
+prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+dnn = c('actual default', 'predicted default'))
+```
+
+The table shows that out of the 100 test loan application records, our model correctly predicted that 59 did not default and 14 did default, resulting in an accuracy of 73% and an error rate of 27%. This is somewhat worse than its performance on the training data. Also note that the model only correctly predicted 14 of the 33 actual loan defaults in the test data, or 42%. We are not satisfied with predictions and try to improve the result.
+
+Step 5 improving model performance
+
+Our model's error rate is too high to deploy it in a real-time credit scoring application. In fact, if the model had predicted "no default" for every test case, it would correct 67% of the time. Since our model is not appeared to be accurate we use adaptive boosting mechanism to improve the prediction. The C5.0() function makes it easy to add boosting to our C5.0 decision tree. We add an additional trials parameter indicating the number of separate decision trees to use in the boosted mechanism. The trials parameter sets an upper limit; the algorithm will stop adding trees if it recognizes that additional trials do not seem to be improving the accuracy. Number of trials in our example 10, a number that has become the standard. The research suggests that this reduces error rates on test data by about 25 percent.
+
+```{r}
+credit_boost10 <- C5.0(credit_train[-17], credit_train$default,
+                       trials = 10)
+credit_boost10
+summary(credit_boost10)
+```
+
+We have done 10 iterations to produce the decision trees. Now, the classifer made 34 mistakes on 900 training examples for an error rate of 3.8%. This is much better result that we had before boosting with improvement over the 13.9% training error rate.
+
+```{r}
+credit_boost_pred10 <- predict(credit_boost10, credit_test)
+credit_boost_pred10
+CrossTable(credit_test$default, credit_boost_pred10,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+```
+
+The total error rate was reduced from 27% prior to boosting down to 18% in the boosted model. The model is
+still not doing well at predicting defaults, predicting only 20/33 = 61% correctly.
+
+Creating Cost Matrix
+
+The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix. We start constructing the cost matrix.
+
+```{r}
+matrix_dimensions <- list(c("no", "yes"), c("no", "yes"))
+names(matrix_dimensions) <- c("predicted", "actual")
+matrix_dimensions
+```
+
+Next, we need to assign the penalty for the various types of errors by supplying four values to fll the matrix.
+Suppose we believe that a loan default costs the bank four times as much as a missed opportunity.
+
+```{r}
+error_cost <- matrix(c(0, 1, 4, 0), nrow = 2, dimnames = matrix_dimensions)
+error_cost
+```
+
+Once we created matrix with values let's apply it to our decision tree using the costs parameter of the C5.0() function. We produce the same steps as we did before.
+
+```{r}
+credit_cost <- C5.0(credit_train[-17], credit_train$default,
+                          costs = error_cost)
+credit_cost_pred <- predict(credit_cost, credit_test)
+
+CrossTable(credit_test$default, credit_cost_pred,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+```
+
+Compared to our boosted model, this version has 37% error here versus 18% in the boosted case. However, the types of
+mistakes are very different. Where the previous models incorrectly classifed only 42% and 61% of defaults, in this model, 79% of the actual defaults were predicted to be non-defaults. 
