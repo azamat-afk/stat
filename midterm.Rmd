@@ -1,0 +1,118 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+Kanayev Azamat Problem 1 Midterm on 27 of April
+
+```{r}
+us=read.table("~/UBSprices.txt")
+```
+
+1a
+i. Key diference that above line we see observations of 2009 rice prices after recession.
+Below regression line we see observtions of 2003 rice prices as rule. There is one exception 
+rice price of Mumbai was higher in 2003 than in 2009.
+
+```{r}
+fit2=lm(us$rice2009~us$rice2003)
+summary(fit2)
+```
+
+
+```{r}
+plot(us$rice2009~us$rice2003)
+abline(fit2)
+```
+
+ii. Vilnus has the largest increase in rice price. London has the largest deacrease in in rice price.
+
+iii. We removed 2 possible outliers just above 70 and between 60 and 70 values in Y axis
+
+```{r}
+us=read.table("~/UBSprices-v3.txt")
+fit3=lm(us$rice2009~us$rice2003)
+summary(fit3)
+```
+
+SLR Model
+y=2.864 + 0.997X
+beta1 is not equal 0 (p val ~ 0) - we conclude that linear relationship between X and Y
+
+```{r}
+boxplot(us$rice2003, horizontal = TRUE, xlab = "Prices 2003", main = "(d) Box Plot")
+```
+
+```{r}
+#resid vs predictor x
+#par(mfrow=c(1,2))
+us.res = resid(fit3)
+us.fit=fitted(fit3)
+plot(us$rice2003, us.res, ylab="Residuals", xlab="Rice price of 2003", main="Rice prices 2003")
+abline(0, 0)
+
+#resid vs fitted value
+plot(us.fit, us.res, ylab="Residuals", xlab="Fitted Values",
+     main="Rice prices 2003")
+abline(0, 0)
+```
+
+After removing possible outliers we still can see variability (range 17-25)
+
+```{r}
+us_stdres = rstandard(fit3)
+qqnorm(us_stdres, ylab="Standardized Residuals", xlab="Normal
+       Scores",main="Rice prices 2003")
+qqline(us_stdres)
+```
+
+From QQ plot we see deviation from normality of residuals. Residuals are not normal from shapiro test p val<0.05
+
+```{r}
+shapiro.test(us_stdres)
+```
+
+```{r}
+library(MASS)
+boxcox(us$rice2009~us$rice2003)
+```
+
+lambda = -0.5 we need transform of Y_i=1/sqrt(Y)
+
+```{r}
+y=us$rice2009
+x=us$rice2003
+y1=1/sqrt(y)
+plot(y1~x)
+fit4=lm(y1~x)
+abline(fit4)
+```
+
+We see the result - variability is decreased. We significantly reduced non-normality of residuals we get. We that residuals now are normal from Shapiro test
+
+```{r}
+us_stdres1 = rstandard(fit4)
+qqnorm(us_stdres1, ylab="Standardized Residuals", xlab="Normal
+       Scores",main="Rice prices 2003")
+qqline(us_stdres1)
+```
+
+```{r}
+shapiro.test(us_stdres1)
+```
+
